@@ -4,18 +4,17 @@ import { ref, uploadBytes } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
-import { useParams } from 'react-router-dom';
+import { redirect, useNavigate, useParams } from 'react-router-dom';
 import { Application } from '../lib/types';
 
 async function submitApplication({ job, name, email, resume }: Application) {
   const id = `applications/${uuidv4()}`;
-  await Promise.all([
-    setDoc(doc(db, id), { id, job, name, email }),
-    uploadBytes(ref(storage, id), resume),
-  ]);
+  await uploadBytes(ref(storage, id), resume);
+  await setDoc(doc(db, id), { id, job, name, email, score: 0, reason: 'Evaluation pending.' });
 }
 
 function ApplicationForm() {
+  const navigate = useNavigate();
   const { job } = useParams() as { job: string };
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,7 +30,7 @@ function ApplicationForm() {
     }
 
     submitApplication({ job, name, email, resume })
-      .then(() => setErrorMessage('Success'))
+      .then(() => navigate('/applications'))
       .catch((e: Error) => setErrorMessage(e.message));
   };
 

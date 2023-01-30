@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  orderBy,
   query,
   QuerySnapshot,
   where,
@@ -15,7 +16,7 @@ import { db, storage } from '../lib/firebase';
 import { Application, Job } from '../lib/types';
 
 export default function ApplicationsList() {
-  const jobs = useLoaderData() as Array<Job & { applications: Application[] }>;
+  const jobs = useLoaderData() as Array<Job & { applications: Array<Application & {score: number, reason: string}> }>;
 
   return (
     <Layout>
@@ -28,7 +29,7 @@ export default function ApplicationsList() {
               <li key={application.id}>
                 <a href={application.resume}>
                   {application.name} ({application.email})
-                </a>
+                </a>{application.score != null ? ` (${application.score}): ${application.reason}` : ': Score Pending'}
               </li>
             ))}
           </section>
@@ -46,13 +47,13 @@ export const loadApplications: LoaderFunction = async ({ params }) => {
     snapshot.docs.map((doc) => doc.data())
   );
   const applications = await getDocs(
-    query(collection(db, 'applications'))
+    query(collection(db, 'applications'), orderBy('score', 'desc'))
   ).then((snapshot) =>
-    snapshot.docs.map((doc) => {
+    Promise.all(snapshot.docs.map(async (doc) => {
       const application: Application = doc.data();
-      const resume = getDownloadURL(ref(storage, application.id));
+      const resume = await getDownloadURL(ref(storage, application.id));
       return { ...application, resume };
-    })
+    }))
   );
 
   return jobs.map((job) => {
